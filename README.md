@@ -52,9 +52,14 @@ calibre-agent-skill/
 
 ---
 
-## Installation for AI Agents (Google Antigravity)
+## Installation & Setup for AI Agents
 
-To make the skill globally available across all workspaces on Windows (avoiding Go `os.ReadDir` skipping top-level `ReparsePoint` junctions):
+Skills instruct autonomous coding agents on how and when to use this toolkit. Depending on your environment and operating system, link or install the skill into your agent's configuration directory.
+
+### 1. Google Antigravity
+
+#### Windows (PowerShell)
+To make the skill globally available across all workspaces on Windows (avoiding issues where Go's `os.ReadDir` skips top-level filesystem reparse points/junctions):
 
 ```powershell
 # 1. Create a real directory in the global skills folder
@@ -63,16 +68,80 @@ New-Item -ItemType Directory -Force -Path "$HOME\.gemini\config\skills\calibre-l
 # 2. HardLink SKILL.md and Junction the subdirectories
 New-Item -ItemType HardLink -Force `
   -Path "$HOME\.gemini\config\skills\calibre-library\SKILL.md" `
-  -Target "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\SKILL.md"
+  -Target "C:\path\to\calibre-agent-skill\skills\calibre-library\SKILL.md"
 
 New-Item -ItemType Junction `
   -Path "$HOME\.gemini\config\skills\calibre-library\scripts" `
-  -Target "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\scripts"
+  -Target "C:\path\to\calibre-agent-skill\skills\calibre-library\scripts"
 
 New-Item -ItemType Junction `
   -Path "$HOME\.gemini\config\skills\calibre-library\references" `
-  -Target "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\references"
+  -Target "C:\path\to\calibre-agent-skill\skills\calibre-library\references"
 ```
+
+#### Linux & macOS (Bash / Zsh)
+```bash
+# Global configuration for Antigravity
+mkdir -p ~/.gemini/config/skills
+ln -s "/path/to/calibre-agent-skill/skills/calibre-library" ~/.gemini/config/skills/calibre-library
+```
+
+---
+
+### 2. Claude Code
+
+Claude Code loads skills/rules from `~/.claude/commands/` or `.claude/skills/` (project-level), or directly via system prompt instructions / prompt files.
+
+#### Linux / macOS
+```bash
+# Link skill directory to Claude global skills or user commands
+mkdir -p ~/.claude/skills
+ln -s "/path/to/calibre-agent-skill/skills/calibre-library" ~/.claude/skills/calibre-library
+```
+
+#### Windows (PowerShell)
+```powershell
+New-Item -ItemType Directory -Force -Path "$HOME\.claude\skills"
+New-Item -ItemType Junction `
+  -Path "$HOME\.claude\skills\calibre-library" `
+  -Target "C:\path\to\calibre-agent-skill\skills\calibre-library"
+```
+
+---
+
+### 3. Cursor & Windsurf (.cursorrules / .windsurfrules / Rules for AI)
+
+For Cursor or Windsurf, you can expose the skill instructions across projects or per-workspace:
+
+- **Per Workspace / Repository:**
+  Reference [`skills/calibre-library/SKILL.md`](./skills/calibre-library/SKILL.md) in your `.cursorrules` or `.cursor/rules/calibre.mdc`:
+  ```markdown
+  When managing the Calibre library, follow instructions and run scripts from:
+  path/to/calibre-agent-skill/skills/calibre-library/SKILL.md
+  Always execute scripts with: calibre-debug -e <script_path> -- [args]
+  ```
+- **Symlink into project rules (macOS/Linux):**
+  ```bash
+  mkdir -p .cursor/rules
+  ln -s "/path/to/calibre-agent-skill/skills/calibre-library/SKILL.md" .cursor/rules/calibre.mdc
+  ```
+
+---
+
+### 4. Custom CLI Agents & Standalone Use (Generic / Codex / Aider / Any LLM)
+
+Any agent with terminal access can use this toolkit without a specialized plugin framework:
+
+1. **Set the environment variable** pointing to your library (optional if using default):
+   - **Linux / macOS:**
+     ```bash
+     export CALIBRE_LIBRARY="$HOME/Calibre Library"
+     ```
+   - **Windows (PowerShell):**
+     ```powershell
+     $env:CALIBRE_LIBRARY = "C:\Users\<username>\Calibre Library"
+     ```
+2. **Include the contents of [`SKILL.md`](./skills/calibre-library/SKILL.md) in the agent's context or system prompt.** All scripts output structured **UTF-8 JSON**, making them directly parseable by any language model tool-calling loop.
 
 ---
 
