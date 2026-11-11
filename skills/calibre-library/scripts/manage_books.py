@@ -19,6 +19,7 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from calibre_conn import open_cache, print_json, serialize_book_summary
+from fix_library_paths import remove_desktop_ini_in_dir
 
 
 def cmd_add_book(cache, args) -> None:
@@ -146,6 +147,14 @@ def cmd_remove_books(cache, args) -> None:
             }
         )
         return
+
+    lib_path = cache.backend.library_path
+    for bid in valid_ids:
+        rel = cache.field_for("path", bid)
+        if rel:
+            abs_dir = os.path.join(lib_path, rel.replace("/", os.sep))
+            remove_desktop_ini_in_dir(abs_dir)
+            remove_desktop_ini_in_dir(os.path.dirname(abs_dir))
 
     cache.remove_books(valid_ids, permanent=args.permanent)
     print_json(

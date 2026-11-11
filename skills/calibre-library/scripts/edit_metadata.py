@@ -22,6 +22,36 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from calibre_conn import open_cache, print_json, serialize_book_summary
+from fix_library_paths import force_rmtree, is_only_junk_files, remove_desktop_ini_in_dir
+
+
+def lookup_item_id(cache, field: str, target_name: str) -> int | None:
+    """Find item_id in field by exact match first, falling back to case-insensitive match."""
+    id_map = cache.get_id_map(field)
+    for iid, name in id_map.items():
+        if name == target_name:
+            return iid
+    target_low = target_name.lower()
+    for iid, name in id_map.items():
+        if name.lower() == target_low:
+            return iid
+    return None
+
+
+def unlock_book_dirs_for_move(cache, book_ids) -> list[str]:
+    """Remove Google Drive desktop.ini from book folders and parent author folders before Calibre moves them."""
+    lib_path = cache.backend.library_path
+    old_parent_dirs = set()
+    for bid in book_ids:
+        rel = cache.field_for("path", bid)
+        if rel:
+            abs_dir = os.path.join(lib_path, rel.replace("/", os.sep))
+            parent_dir = os.path.dirname(abs_dir)
+            remove_desktop_ini_in_dir(abs_dir)
+            remove_desktop_ini_in_dir(parent_dir)
+            old_parent_dirs.add(parent_dir)
+    return sorted(old_parent_dirs)
+
 
 
 def cmd_set_fields(cache, args) -> None:
@@ -79,10 +109,25 @@ def cmd_set_fields(cache, args) -> None:
         )
         return
 
+    old_parents = []
+    if "title" in planned_changes or "authors" in planned_changes:
+        old_parents = unlock_book_dirs_for_move(cache, book_ids)
+
     affected: set[int] = set()
     for field_name, val_map in planned_changes.items():
         changed = cache.set_field(field_name, val_map, allow_case_change=True)
         affected.update(changed)
+
+    if "authors" in planned_changes:
+        sort_map = {
+            bid: cache.author_sort_from_authors(cache.field_for("authors", bid))
+            for bid in book_ids
+        }
+        cache.set_field("author_sort", sort_map, allow_case_change=True)
+
+    for pdir in old_parents:
+        if os.path.isdir(pdir) and is_only_junk_files(pdir, allow_opf=False):
+            force_rmtree(pdir)
 
     if args.cover:
         cover_path = os.path.abspath(args.cover)
@@ -103,9 +148,7 @@ def cmd_set_fields(cache, args) -> None:
 
 
 def cmd_rename_item(cache, args) -> None:
-    item_id = cache.get_item_id(args.field, args.from_name, case_sensitive=True)
-    if item_id is None:
-        item_id = cache.get_item_id(args.field, args.from_name, case_sensitive=False)
+    item_id = lookup_item_id(cache, args.field, args.from_name)
     if item_id is None:
         print_json({"error": f"Item '{args.from_name}' not found in field '{args.field}'"})
         return
@@ -124,7 +167,27 @@ def cmd_rename_item(cache, args) -> None:
         )
         return
 
+    old_parents = []
+    if args.field == "authors":
+        old_parents = unlock_book_dirs_for_move(cache, affected_books)
+
     changed_books, id_map = cache.rename_items(args.field, {item_id: args.to_name})
+
+    if args.field == "authors":
+        new_aid = id_map.get(item_id, item_id)
+        cache.set_sort_for_authors({new_aid: cache.author_sort_from_authors([args.to_name])})
+        all_affected = sorted(set(affected_books) | set(changed_books))
+        if all_affected:
+            sort_map = {
+                bid: cache.author_sort_from_authors(cache.field_for("authors", bid))
+                for bid in all_affected
+                if cache.has_id(bid)
+            }
+            cache.set_field("author_sort", sort_map, allow_case_change=True)
+        for pdir in old_parents:
+            if os.path.isdir(pdir) and is_only_junk_files(pdir, allow_opf=False):
+                force_rmtree(pdir)
+
     print_json(
         {
             "dry_run": False,
@@ -141,9 +204,7 @@ def cmd_remove_items(cache, args) -> None:
     found_ids = []
     not_found = []
     for name in args.names:
-        iid = cache.get_item_id(args.field, name, case_sensitive=True)
-        if iid is None:
-            iid = cache.get_item_id(args.field, name, case_sensitive=False)
+        iid = lookup_item_id(cache, args.field, name)
         if iid is not None:
             found_ids.append((name, iid))
         else:
