@@ -135,6 +135,32 @@ calibre-debug -e "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\scripts
 calibre-debug -e "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\scripts\fix_library_paths.py"
 ```
 
+### 7. Universal E-Book Cleaner & Repair Toolkit — [`scripts/repair_ebook.py`](./scripts/repair_ebook.py)
+
+Cleans and repairs general formatting and OCR defects across EPUB and MOBI/AZW files (using Python standard library only):
+- **Broken sentence merging**: Combines paragraphs split across page or OCR breaks (preserves dialogues, poetry, and lists).
+- **Whitespace & Typography**: Collapses double/multiple spaces inside paragraphs, removes leading indentation spaces after `<p>`, fixes dialogue dash spacing (`–Text` -> `– Text`), and unglues punctuation (`word.Next` -> `word. Next`).
+- **Malformed `<head>` & XHTML cleanup**: Strips illegal `<p>` tags from `<head>`, removes MS Office/Word MSO conditional comments, and fixes corrupted `<title>`/`<meta name="author">`.
+- **Generator Cruft**: Removes BookDesigner/LRF advertising footers and empty `<p .../>` tags.
+- **TOC Reconstruction**: Builds valid, complete `toc.ncx` navigation map.
+- **Direct MOBI/AZW to clean EPUB**: Built-in PalmDOC LZ77 decompressor and image extractor.
+
+```powershell
+# Repair a standalone EPUB or convert a MOBI file (outputs JSON summary with --json)
+python "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\scripts\repair_ebook.py" "C:\path\to\book.epub" --json
+
+# Repair all books in a directory
+python "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\scripts\repair_ebook.py" "C:\path\to\books_folder" --output-dir "repaired"
+
+# Workflow to repair a book directly inside Calibre:
+# 1. Export format:
+calibre-debug -e "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\scripts\manage_books.py" -- export --id 48 --format EPUB --to-dir "C:\temp\work"
+# 2. Repair with repair_ebook.py:
+python "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\scripts\repair_ebook.py" "C:\temp\work\book_48.epub" --in-place
+# 3. Re-import repaired format into Calibre:
+calibre-debug -e "C:\Filip\SW\calibre-agent-skill\skills\calibre-library\scripts\manage_books.py" -- add-format --id 48 --file "C:\temp\work\book_48.epub"
+```
+
 ---
 
 ## Calibre Query Language Cheat Sheet

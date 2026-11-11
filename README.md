@@ -39,7 +39,8 @@ calibre-agent-skill/
             ├── edit_metadata.py              # Single & bulk metadata editor, author/tag merging
             ├── manage_books.py               # Add/export/remove books and formats (uses Calibre Trash)
             ├── convert_books.py              # Batch & single format converter (e.g. EPUB -> MOBI)
-            └── fix_library_paths.py          # Repair Google Drive path desyncs & clean desktop.ini folders
+            ├── fix_library_paths.py          # Repair Google Drive path desyncs & clean desktop.ini folders
+            └── repair_ebook.py               # Clean formatting, broken paragraphs, cruft, and TOC in EPUB/MOBI
 ```
 
 ---
@@ -210,6 +211,16 @@ calibre-debug -e skills/calibre-library/scripts/fix_library_paths.py -- --dry-ru
 
 # Execute fixes
 calibre-debug -e skills/calibre-library/scripts/fix_library_paths.py
+```
+
+### 6. Clean & Repair Formatting Artifacts in E-Books (`repair_ebook.py`)
+
+```powershell
+# Repair standalone EPUB or convert and clean MOBI to EPUB (pure Python stdlib)
+python skills/calibre-library/scripts/repair_ebook.py "path/to/book.epub" --json
+
+# Repair all books in a directory
+python skills/calibre-library/scripts/repair_ebook.py "path/to/books_folder" --output-dir "repaired"
 ```
 
 ---
